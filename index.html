@@ -80,8 +80,8 @@
             text-align: center;
         }
         .profile-info {
-            text-align: left;
-            margin-top: 10px; /* Reduzindo espaço em branco */
+            text-align: center;
+            margin-top: 10px;
             color: #7b1fa2;
             max-width: 100%;
             overflow-wrap: break-word;
@@ -91,13 +91,10 @@
         }
         .profile-info h2 {
             margin-bottom: 5px;
-            text-align: center;
-            margin-top: 5px; /* Ajuste de espaço */
         }
         .profile-info p {
             font-size: 16px;
             margin: 5px 0;
-            text-align: center;
         }
         .avatar {
             border: 3px solid #7b1fa2;
@@ -126,58 +123,120 @@
             height: 40px;
             animation: spin 1s linear infinite;
         }
-        .bio-tooltip {
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .bio-balloon {
             position: relative;
             display: inline-block;
-            margin-left: 5px;
+            margin-top: 10px;
         }
-        .bio-tooltip .tooltiptext {
-            visibility: hidden;
-            width: 150px;
-            background-color: #7b1fa2;
-            color: white;
+        .bio-balloon .balloon {
+            visibility: visible;
+            width: 200px;
+            background-color: white;
+            color: #7b1fa2;
             text-align: center;
             border-radius: 6px;
-            padding: 5px;
-            position: absolute;
+            border: 2px solid #7b1fa2;
+            padding: 10px;
+            position: relative;
             z-index: 1;
-            bottom: 125%;
+            top: 0;
             left: 50%;
             transform: translateX(-50%);
-            opacity: 0;
-            transition: opacity 0.3s;
         }
-        .bio-tooltip .tooltiptext::after {
+        .bio-balloon .balloon::after {
             content: "";
             position: absolute;
-            top: 100%;
+            bottom: 100%;
             left: 50%;
             margin-left: -5px;
             border-width: 5px;
             border-style: solid;
-            border-color: #7b1fa2 transparent transparent transparent;
+            border-color: transparent transparent #7b1fa2 transparent;
         }
-        .bio-tooltip:hover .tooltiptext {
+        .favorites {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .favorite-item {
+            margin: 5px;
+            padding: 5px 10px;
+            background-color: #7b1fa2;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+        .favorite-item:hover {
+            background-color: #6a1b9a;
+        }
+        .favorite-icon {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            cursor: pointer;
+            font-size: 20px;
+            color: #7b1fa2;
+            border: 1px solid #7b1fa2;
+            border-radius: 50%;
+            padding: 2px;
+        }
+        .favorite-icon.favorited {
+            color: #fff;
+            background-color: #7b1fa2;
+        }
+        .favorite-item img {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .online-icon {
+            color: green;
+        }
+        .offline-icon {
+            color: red;
+        }
+        .popup {
+            visibility: hidden;
+            width: 250px;
+            background-color: #7b1fa2;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 10px;
+            position: fixed;
+            z-index: 1000;
+            left: 50%;
+            transform: translateX(-50%);
+            top: 20px;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+        .popup.show {
             visibility: visible;
             opacity: 1;
-        }
-        a {
-            color: #7b1fa2;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
         }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container" id="container">
         <h1>Buscador de Jogador Gartic</h1>
-        <div class="form-group">
-            <input type="text" id="playerName" placeholder="Digite o nome do jogador">
+        <div class="form-group" id="form-group">
+            <input type="text" id="playerName" placeholder="Digite o nome do jogador" onkeypress="handleKeyPress(event)">
             <button onclick="buscarJogador()">
                 <i class="fas fa-search"></i>
             </button>
+        </div>
+        <div class="favorites" id="favorites">
+            <!-- Aqui serão adicionados os favoritos via JavaScript -->
         </div>
         <div id="result" class="result" style="display: none;"></div>
         <div id="error" class="error"></div>
@@ -185,10 +244,12 @@
     <div class="loading" id="loading">
         <div class="spinner"></div>
     </div>
+    <div class="popup" id="popup">Favoritado!</div>
 
     <script>
         let currentAbortController = null;
         let intervalId = null;
+        let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
 
         async function fetchPlayerData(playerName) {
             const lowerCasePlayerName = playerName.toLowerCase();
@@ -212,52 +273,46 @@
 
                 let jogadorEncontrado = false;
                 let salaId = '';
-                let salaNome = 'Offline';
+                let salaNome = '';
 
-                const fetchPromises = Object.entries(salas).map(([id, nome]) =>
-                    fetch(`https://gartic.com.br/info_sala.php?x=&id_sala=${id}`, { signal })
-                        .then(salaResponse => salaResponse.json())
-                        .then(salaData => {
-                            const jogadores = salaData.jogadores.map(jogador => jogador.toLowerCase());
-                            if (jogadores.includes(lowerCasePlayerName)) {
-                                jogadorEncontrado = true;
-                                salaId = id;
-                                salaNome = nome;
-                            }
-                        })
-                        .catch(error => console.error(`Erro ao buscar a sala ${id}:`, error))
-                );
 
-                // Wait for all fetch promises to complete or 15 seconds timeout
+                const fetchPromises = Object.entries(salas).map(async ([id, nome]) => {
+                    const salaResponse = await fetch(`https://gartic.com.br/info_sala.php?x=&id_sala=${id}`, { signal });
+                    const salaData = await salaResponse.json();
+                    const jogadores = salaData.jogadores.map(jogador => jogador.toLowerCase());
+                    if (jogadores.includes(lowerCasePlayerName)) {
+                        jogadorEncontrado = true;
+                        salaId = id;
+                        salaNome = nome;
+                    }
+                });
+
                 await Promise.race([Promise.all(fetchPromises), new Promise(resolve => setTimeout(resolve, 15000))]);
 
-                const profileResponse = await fetch(`https://gartic.pics/r/profile?&login=${lowerCasePlayerName}`, { signal });
+                const profileResponse = await fetch(`https://gartic.com.br/profile?&login=${lowerCasePlayerName}`, { signal });
                 const profileData = await profileResponse.json();
                 const avatarUrl = `https://gartic.com.br/avatar.php?nick=${lowerCasePlayerName}`;
-                const { pontos, vitorias, frase } = profileData;
-
-                // Calcular média de pontos e vitórias
-                const media = calcularMedia(pontos, vitorias);
-
-                // Limpar resultados anteriores
-                resultDiv.innerHTML = '';
+                const pontos = profileData.pontos || 'N/A';
+                const vitorias = profileData.vitorias || 'N/A';
+                const frase = profileData.frase || 'N/A';
 
                 resultDiv.innerHTML = `
                     <div class="profile-info">
                         <h2>Perfil de ${playerName}</h2>
                         <img src="${avatarUrl}" alt="Avatar de ${playerName}" class="avatar">
-                        <div class="bio-tooltip">
-                            <span class="fas fa-comment-alt"></span>
-                            <span class="tooltiptext">${frase}</span>
+                        <div class="bio-balloon">
+                            <div class="balloon">${frase}</div>
                         </div>
+                        <i class="far fa-star favorite-icon ${favoritos.includes(playerName) ? 'favorited' : ''}" onclick="toggleFavorite('${playerName}')"></i>
                         <p><strong>Pontos:</strong> ${pontos}</p>
                         <p><strong>Vitórias:</strong> ${vitorias}</p>
-                        <p><strong>Média:</strong> ${media}</p>
+                        <p><strong>Média:</strong> ${calcularMedia(pontos, vitorias)}</p>
                         <p><strong>Jogando:</strong> ${jogadorEncontrado ? `<a href="https://gartic.com.br/0${salaId}" target="_blank">${salaNome}</a>` : 'Offline'}</p>
                     </div>
                 `;
 
                 resultDiv.style.display = 'block';
+                hideFavorites();
             } catch (error) {
                 if (error.name !== 'AbortError') {
                     errorDiv.textContent = 'Erro ao buscar dados. Por favor, tente novamente mais tarde.';
@@ -289,7 +344,6 @@
             const playerNameInput = document.getElementById('playerName');
             const playerName = playerNameInput.value.trim();
             const errorDiv = document.getElementById('error');
-            const loadingDiv = document.getElementById('loading');
 
             // Limpar mensagens de erro
             errorDiv.textContent = '';
@@ -306,14 +360,115 @@
             history.pushState({}, '', `?user=${playerName}`);
         }
 
-        // Verificar se há um jogador especificado na URL
+        function adicionarFavorito(playerName) {
+            if (!favoritos.includes(playerName) && favoritos.length < 5) {
+                favoritos.push(playerName);
+                localStorage.setItem('favoritos', JSON.stringify(favoritos));
+                renderizarFavoritos();
+                mostrarPopup(`Jogador ${playerName} foi adicionado aos favoritos!`);
+            }
+        }
+
+        function removerFavorito(playerName) {
+            favoritos = favoritos.filter(fav => fav !== playerName);
+            localStorage.setItem('favoritos', JSON.stringify(favoritos));
+            renderizarFavoritos();
+            mostrarPopup(`Jogador ${playerName} foi removido dos favoritos!`);
+        }
+
+        function toggleFavorite(playerName) {
+            const favoriteIcon = document.querySelector('.favorite-icon');
+            if (favoritos.includes(playerName)) {
+                removerFavorito(playerName);
+                favoriteIcon.classList.remove('favorited');
+            } else {
+                adicionarFavorito(playerName);
+                favoriteIcon.classList.add('favorited');
+            }
+        }
+
+        async function renderizarFavoritos() {
+            const favoritesContainer = document.getElementById('favorites');
+            favoritesContainer.innerHTML = ''; // Limpa os favoritos antigos
+
+            for (const playerName of favoritos) {
+                const avatarUrl = `https://gartic.com.br/avatar.php?nick=${playerName.toLowerCase()}`;
+                const salasResponse = await fetch('https://raw.githubusercontent.com/kelbovine/articosibu/main/salas.json');
+                const salas = await salasResponse.json();
+                let jogadorEncontrado = false;
+
+                const fetchPromises = Object.entries(salas).map(([id, nome]) =>
+                    fetch(`https://gartic.com.br/info_sala.php?x=&id_sala=${id}`)
+                        .then(salaResponse => salaResponse.json())
+                        .then(salaData => {
+                            const jogadores = salaData.jogadores.map(jogador => jogador.toLowerCase());
+                            if (jogadores.includes(playerName.toLowerCase())) {
+                                jogadorEncontrado = true;
+                            }
+                        })
+                        .catch(error => console.error(`Erro ao buscar a sala ${id}:`, error))
+                );
+
+                // Wait for all fetch promises to complete or 15 seconds timeout
+                await Promise.race([Promise.all(fetchPromises), new Promise(resolve => setTimeout(resolve, 15000))]);
+
+                const favoriteItem = document.createElement('div');
+                favoriteItem.classList.add('favorite-item');
+                favoriteItem.innerHTML = `
+                    <img src="${avatarUrl}" alt="Avatar de ${playerName}">
+                    ${playerName}
+                    <i class="fas fa-circle ${jogadorEncontrado ? 'online-icon' : 'offline-icon'}"></i>
+                `;
+                favoriteItem.addEventListener('click', () => {
+                    document.getElementById('playerName').value = playerName;
+                    history.pushState({}, '', `?user=${playerName}`);
+                    buscarJogador();
+                });
+                favoritesContainer.appendChild(favoriteItem);
+            }
+        }
+
+        function hideFavorites() {
+            const favoritesContainer = document.getElementById('favorites');
+            favoritesContainer.style.display = 'none';
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                buscarJogador();
+            }
+        }
+
+        function hideInputAndButton() {
+            const formGroup = document.getElementById('form-group');
+            formGroup.style.display = 'none';
+        }
+
+        function mostrarPopup(message) {
+            const popup = document.getElementById('popup');
+            popup.textContent = message;
+            popup.classList.add('show');
+
+            setTimeout(() => {
+                popup.classList.remove('show');
+            }, 3000);
+        }
+
         window.onload = function() {
             const params = new URLSearchParams(window.location.search);
-            const playerName = params.get('user');
+            const playerName = params.get('user') || params.get('login');
 
             if (playerName) {
                 document.getElementById('playerName').value = playerName;
                 buscarJogador();
+
+                if (params.has('login')) {
+                    hideInputAndButton();
+                }
+
+                hideFavorites();
+            } else {
+                renderizarFavoritos();
             }
         };
     </script>

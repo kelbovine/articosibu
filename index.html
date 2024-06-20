@@ -1,15 +1,13 @@
-]<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Buscador de Jogador Gartic</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700&display=swap" rel="stylesheet">
     <style>
         @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css');
         body {
-            font-family: 'Roboto', sans-serif;
-            font-weight: bold;
+            font-family: 'Arial', sans-serif;
             margin: 0;
             padding: 20px;
             display: flex;
@@ -77,7 +75,7 @@
             background: #ffcccc;
         }
         .error {
-            color: red;
+            color: #fff;
             margin-top: 10px;
             text-align: center;
         }
@@ -184,15 +182,6 @@
             top: 5px;
             right: 5px;
             cursor: pointer;
-            font-size: 20px;
-            color: #7b1fa2;
-            border: 1px solid #7b1fa2;
-            border-radius: 50%;
-            padding: 2px;
-        }
-        .favorite-icon.favorited {
-            color: #fff;
-            background-color: #7b1fa2;
         }
         .favorite-item img {
             width: 20px;
@@ -205,26 +194,6 @@
         }
         .offline-icon {
             color: red;
-        }
-        .popup {
-            visibility: hidden;
-            width: 250px;
-            background-color: #7b1fa2;
-            color: #fff;
-            text-align: center;
-            border-radius: 8px;
-            padding: 10px;
-            position: fixed;
-            z-index: 1000;
-            left: 50%;
-            transform: translateX(-50%);
-            top: 20px;
-            opacity: 0;
-            transition: opacity 0.5s ease-in-out;
-        }
-        .popup.show {
-            visibility: visible;
-            opacity: 1;
         }
     </style>
 </head>
@@ -246,7 +215,6 @@
     <div class="loading" id="loading">
         <div class="spinner"></div>
     </div>
-    <div class="popup" id="popup">Favoritado!</div>
 
     <script>
         let currentAbortController = null;
@@ -268,29 +236,33 @@
             const { signal } = currentAbortController;
 
             loadingDiv.style.display = 'flex';
-            errorDiv.textContent = '';
 
             try {
-                let jogadorEncontrado = false;
-                let salaId = '';
-                let salaNome = '';
                 const salasResponse = await fetch('https://raw.githubusercontent.com/kelbovine/articosibu/main/salas.json', { signal });
                 const salas = await salasResponse.json();
 
-                const fetchPromises = Object.entries(salas).map(async ([id, nome]) => {
-                    const salaResponse = await fetch(`https://gartic.com.br/info_sala.php?x=&id_sala=${id}`, { signal });
-                    const salaData = await salaResponse.json();
-                    const jogadores = salaData.jogadores.map(jogador => jogador.toLowerCase());
-                    if (jogadores.includes(lowerCasePlayerName)) {
-                        jogadorEncontrado = true;
-                        salaId = id;
-                        salaNome = nome;
-                    }
-                });
+                let jogadorEncontrado = false;
+                let salaId = '';
+                let salaNome = 'Offline';
 
+                const fetchPromises = Object.entries(salas).map(([id, nome]) =>
+                    fetch(`https://gartic.com.br/info_sala.php?x=&id_sala=${id}`, { signal })
+                        .then(salaResponse => salaResponse.json())
+                        .then(salaData => {
+                            const jogadores = salaData.jogadores.map(jogador => jogador.toLowerCase());
+                            if (jogadores.includes(lowerCasePlayerName)) {
+                                jogadorEncontrado = true;
+                                salaId = id;
+                                salaNome = nome;
+                            }
+                        })
+                        .catch(error => console.error(`Erro ao buscar a sala ${id}:`, error))
+                );
+
+                // Wait for all fetch promises to complete or 15 seconds timeout
                 await Promise.race([Promise.all(fetchPromises), new Promise(resolve => setTimeout(resolve, 15000))]);
 
-                const profileResponse = await fetch(`https://gartic.com.br/profile?&login=${lowerCasePlayerName}`, { signal });
+                const profileResponse = await fetch(`https://gartic.pics/r/profile?&login=${lowerCasePlayerName}`, { signal });
                 const profileData = await profileResponse.json();
                 const avatarUrl = `https://gartic.com.br/avatar.php?nick=${lowerCasePlayerName}`;
                 const pontos = profileData.pontos || 'N/A';
@@ -304,7 +276,7 @@
                         <div class="bio-balloon">
                             <div class="balloon">${frase}</div>
                         </div>
-                        <i class="far fa-star favorite-icon ${favoritos.includes(playerName) ? 'favorited' : ''}" onclick="toggleFavorite('${playerName}')"></i>
+                        <i class="far fa-star favorite-icon" onclick="toggleFavorite('${playerName}')"></i>
                         <p><strong>Pontos:</strong> ${pontos}</p>
                         <p><strong>Vitórias:</strong> ${vitorias}</p>
                         <p><strong>Média:</strong> ${calcularMedia(pontos, vitorias)}</p>
@@ -366,7 +338,6 @@
                 favoritos.push(playerName);
                 localStorage.setItem('favoritos', JSON.stringify(favoritos));
                 renderizarFavoritos();
-                mostrarPopup(`Jogador ${playerName} foi adicionado aos favoritos!`);
             }
         }
 
@@ -374,17 +345,13 @@
             favoritos = favoritos.filter(fav => fav !== playerName);
             localStorage.setItem('favoritos', JSON.stringify(favoritos));
             renderizarFavoritos();
-            mostrarPopup(`Jogador ${playerName} foi removido dos favoritos!`);
         }
 
         function toggleFavorite(playerName) {
-            const favoriteIcon = document.querySelector('.favorite-icon');
             if (favoritos.includes(playerName)) {
                 removerFavorito(playerName);
-                favoriteIcon.classList.remove('favorited');
             } else {
                 adicionarFavorito(playerName);
-                favoriteIcon.classList.add('favorited');
             }
         }
 
@@ -443,16 +410,6 @@
         function hideInputAndButton() {
             const formGroup = document.getElementById('form-group');
             formGroup.style.display = 'none';
-        }
-
-        function mostrarPopup(message) {
-            const popup = document.getElementById('popup');
-            popup.textContent = message;
-            popup.classList.add('show');
-
-            setTimeout(() => {
-                popup.classList.remove('show');
-            }, 3000);
         }
 
         window.onload = function() {

@@ -1,13 +1,15 @@
-<!DOCTYPE html>
+]<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Buscador de Jogador Gartic</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700&display=swap" rel="stylesheet">
     <style>
         @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css');
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: 'Roboto', sans-serif;
+            font-weight: bold;
             margin: 0;
             padding: 20px;
             display: flex;
@@ -75,7 +77,7 @@
             background: #ffcccc;
         }
         .error {
-            color: #fff;
+            color: red;
             margin-top: 10px;
             text-align: center;
         }
@@ -266,15 +268,14 @@
             const { signal } = currentAbortController;
 
             loadingDiv.style.display = 'flex';
+            errorDiv.textContent = '';
 
             try {
-                const salasResponse = await fetch('https://raw.githubusercontent.com/kelbovine/articosibu/main/salas.json', { signal });
-                const salas = await salasResponse.json();
-
                 let jogadorEncontrado = false;
                 let salaId = '';
                 let salaNome = '';
-
+                const salasResponse = await fetch('https://raw.githubusercontent.com/kelbovine/articosibu/main/salas.json', { signal });
+                const salas = await salasResponse.json();
 
                 const fetchPromises = Object.entries(salas).map(async ([id, nome]) => {
                     const salaResponse = await fetch(`https://gartic.com.br/info_sala.php?x=&id_sala=${id}`, { signal });

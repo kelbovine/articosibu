@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Buscador de Jogador Gartic</title>
+    <title>Buscador de Jogador Gartic 2.0</title>
     <style>
         @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css');
         body {
@@ -177,12 +177,45 @@
         .favorite-item:hover {
             background-color: #6a1b9a;
         }
-        .favorite-icon {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            cursor: pointer;
-        }
+.favorite-icon {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    cursor: pointer;
+    border: 2px solid #7b1fa2;
+    border-radius: 50%;
+    padding: 2px;
+    transition: all 0.3s ease;
+}
+.favorite-icon.favorited {
+    background-color: #7b1fa2;
+    color: white;
+}
+.favorite-icon.not-favorited {
+    background-color: white;
+    color: #7b1fa2;
+}
+
+/* Estilos para o popup */
+.popup {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #7b1fa2;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 4px;
+    display: none;
+    z-index: 1000;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    animation: fadeInOut 3s ease;
+}
+
+@keyframes fadeInOut {
+    0%, 100% { opacity: 0; }
+    10%, 90% { opacity: 1; }
+}
         .favorite-item img {
             width: 20px;
             height: 20px;
@@ -194,6 +227,17 @@
         }
         .offline-icon {
             color: red;
+        }
+         .credits {
+            font-size: 14px;
+            color: #fff;
+            background-color: #800080;
+            padding: 10px;
+            text-align: center;
+            position: fixed;
+            width: 100%;
+            bottom: 0;
+            left: 0;
         }
     </style>
 </head>
@@ -226,7 +270,7 @@ async function fetchPlayerData(playerName) {
     const errorDiv = document.getElementById('error');
     const loadingDiv = document.getElementById('loading');
     
-    // Abort any ongoing fetch request
+    
     if (currentAbortController) {
         currentAbortController.abort();
     }
@@ -285,6 +329,9 @@ async function fetchPlayerData(playerName) {
 
         resultDiv.style.display = 'block';
         hideFavorites();
+
+        
+        updateFavoriteIcon(playerName);
     } catch (error) {
         if (error.name !== 'AbortError') {
             errorDiv.textContent = 'Erro ao buscar dados. Por favor, tente novamente mais tarde.';
@@ -298,7 +345,7 @@ async function fetchPlayerData(playerName) {
 
 function calcularMedia(pontos, vitorias) {
 const media = pontos / vitorias;
-return media.toFixed(media < 10 ? 2 : 1); // Define a quantidade de casas decimais baseado no valor da média
+return media.toFixed(media < 10 ? 2 : 1); 
 }
 
 function startAutoRefresh(playerName) {
@@ -307,10 +354,10 @@ clearInterval(intervalId);
 }
 
 
-// Atualizar a cada 10 segundos
+
 intervalId = setInterval(() => {
     fetchPlayerData(playerName);
-}, 10000); // Intervalo de 10 segundos
+}, 10000); 
 }
 
 async function buscarJogador() {
@@ -318,7 +365,7 @@ const playerNameInput = document.getElementById('playerName');
 const playerName = playerNameInput.value.trim();
 const errorDiv = document.getElementById('error');
 
-// Limpar mensagens de erro
+
 errorDiv.textContent = '';
 
 if (!playerName) {
@@ -329,35 +376,62 @@ if (!playerName) {
 await fetchPlayerData(playerName);
 startAutoRefresh(playerName);
 
-// Atualizar URL para refletir o jogador buscado
+
 history.pushState({}, '', `?user=${playerName}`);
 }
 
-function adicionarFavorito(playerName) {
-if (!favoritos.includes(playerName) && favoritos.length < 5) {
-favoritos.push(playerName);
-localStorage.setItem('favoritos', JSON.stringify(favoritos));
-renderizarFavoritos();
-}
+function showPopup(message) {
+    const popup = document.getElementById('popup');
+    popup.textContent = message;
+    popup.style.display = 'block';
+    setTimeout(() => {
+        popup.style.display = 'none';
+    }, 3000); 
 }
 
-function removerFavorito(playerName) {
-favoritos = favoritos.filter(fav => fav !== playerName);
-localStorage.setItem('favoritos', JSON.stringify(favoritos));
-renderizarFavoritos();
+function updateFavoriteIcon(playerName) {
+    const favoriteIcon = document.querySelector('.favorite-icon');
+    if (favoritos.includes(playerName)) {
+        favoriteIcon.classList.add('favorited');
+        favoriteIcon.classList.remove('not-favorited');
+    } else {
+        favoriteIcon.classList.add('not-favorited');
+        favoriteIcon.classList.remove('favorited');
+    }
 }
 
 function toggleFavorite(playerName) {
-if (favoritos.includes(playerName)) {
-removerFavorito(playerName);
-} else {
-adicionarFavorito(playerName);
+    const favoriteIcon = document.querySelector('.favorite-icon');
+    if (favoritos.includes(playerName)) {
+        removerFavorito(playerName);
+        favoriteIcon.classList.remove('favorited');
+        favoriteIcon.classList.add('not-favorited');
+    } else {
+        adicionarFavorito(playerName);
+        favoriteIcon.classList.remove('not-favorited');
+        favoriteIcon.classList.add('favorited');
+    }
 }
+
+function adicionarFavorito(playerName) {
+    if (!favoritos.includes(playerName) && favoritos.length < 5) {
+        favoritos.push(playerName);
+        localStorage.setItem('favoritos', JSON.stringify(favoritos));
+        renderizarFavoritos();
+        showPopup(`${playerName} foi adicionado aos favoritos!`);
+    }
+}
+
+function removerFavorito(playerName) {
+    favoritos = favoritos.filter(fav => fav !== playerName);
+    localStorage.setItem('favoritos', JSON.stringify(favoritos));
+    renderizarFavoritos();
+    showPopup(`${playerName} foi removido dos favoritos!`);
 }
 
 async function renderizarFavoritos() {
 const favoritesContainer = document.getElementById('favorites');
-favoritesContainer.innerHTML = ''; // Limpa os favoritos antigos
+favoritesContainer.innerHTML = ''; 
 
 for (const playerName of favoritos) {
     const avatarUrl = `https://gartic.com.br/avatar.php?nick=${playerName.toLowerCase()}`;
@@ -377,7 +451,7 @@ for (const playerName of favoritos) {
             .catch(error => console.error(`Erro ao buscar a sala ${id}:`, error))
     );
 
-    // Wait for all fetch promises to complete or 15 seconds timeout
+    
     await Promise.race([Promise.all(fetchPromises), new Promise(resolve => setTimeout(resolve, 15000))]);
 
     const favoriteItem = document.createElement('div');
@@ -430,5 +504,9 @@ if (playerName) {
 }
 };
 </script>
+<div id="popup" class="popup"></div>
+<div class="credits">
+        Criado para jogadores mobile, desenvolvido por Kel
+    </div>
 </body>
 </html>

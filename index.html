@@ -381,7 +381,6 @@
                 <div class="bio-balloon">
                     <div class="balloon">${frase}</div>
                 </div>
-                <i class="far fa-star favorite-icon" onclick="toggleFavorite('${playerName}')"></i>
                 ${pontos > 0 && vitorias > 0 ? `<p><strong>Média:</strong> ${media}</p>` : ''}
                 <p><strong>Pontos:</strong> ${pontos}</p>
                 <p><strong>Vitórias:</strong> ${vitorias}</p>
@@ -504,12 +503,17 @@
             const favoriteItem = document.createElement('div');
             favoriteItem.classList.add('favorite-item');
             favoriteItem.innerHTML = `
-                <img src="${avatarUrl}" alt="Avatar de ${playerName}">
-                <div>${playerName}</div>
-                <div>${jogadorEncontrado ? '<i class="fas fa-circle online"></i>' : '<i class="far fa-circle offline"></i>'}</div>
+                <img src="${avatarUrl}" alt="Avatar de ${playerName}" class="avatar">
+                <div class="player-info">
+                    <p><strong>${playerName}</strong></p>
+                    <div>${jogadorEncontrado ? '<i class="fas fa-circle online"></i>' : '<i class="far fa-circle offline"></i>'}</div>
+                    <div>${jogadorEncontrado ? `<a href="https://gartic.com.br/0${salaId}" target="_blank">${salaNome}</a>` : 'Offline'}</div>
+                </div>
             `;
             favoritesContainer.appendChild(favoriteItem);
         }
+
+        favoritesContainer.style.display = favoritos.length > 0 ? 'block' : 'none';
     }
 
     function hideFavorites() {
@@ -525,6 +529,7 @@
         if (user) {
             document.getElementById('playerName').value = user;
             buscarJogador();
+            document.getElementById('home-icon').style.display = 'inline-block';
         }
 
         if (login) {
@@ -543,6 +548,7 @@
         if (user) {
             document.getElementById('playerName').value = user;
             buscarJogador();
+            document.getElementById('home-icon').style.display = 'inline-block';
         }
 
         if (login) {

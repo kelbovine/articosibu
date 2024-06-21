@@ -56,7 +56,7 @@
             cursor: pointer;
             font-size: 16px;
             transition: background-color 0.3s ease;
-            height: 40px; /* Ajuste de altura */
+            height: 40px; 
         }
         button:hover {
             background-color: #6a1b9a;
@@ -210,7 +210,7 @@
     color: white;
 }
 
-        
+
 .popup {
     position: fixed;
     bottom: 20px;
@@ -241,7 +241,7 @@
         }
         .offline-icon {
             color: red;
-        }
+       }
          .credits {
             font-size: 14px;
             color: #fff;
@@ -259,7 +259,7 @@
     <div class="container" id="container">
         <h1>
             <a href="/" style="text-decoration: none; color: #7b1fa2;">
-                Buscador Gartic by Kel
+                Buscador Gartic 2.1
             </a>
         </h1>
         <div class="form-group" id="form-group">
@@ -289,7 +289,7 @@
         const resultDiv = document.getElementById('result');
         const errorDiv = document.getElementById('error');
         const loadingDiv = document.getElementById('loading');
-        
+
         if (currentAbortController) {
             currentAbortController.abort();
         }
@@ -330,7 +330,6 @@
             const vitorias = profileData.vitorias || 0;
             let frase = profileData.frase || '';
 
-            
             frase = frase.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>').replace(/(www\.[^\s]+)/g, '<a href="http://$1" target="_blank">$1</a>');
 
             let profileInfoHtml = `
@@ -438,6 +437,8 @@
             localStorage.setItem('favoritos', JSON.stringify(favoritos));
             renderizarFavoritos();
             showPopup(`${playerName} foi adicionado aos favoritos!`);
+        } else if (favoritos.length >= 5) {
+            showPopup(`Você já possui o máximo de favoritos permitidos.`);
         }
     }
 
@@ -450,7 +451,7 @@
 
     async function renderizarFavoritos() {
         const favoritesContainer = document.getElementById('favorites');
-        favoritesContainer.innerHTML = ''; 
+        favoritesContainer.innerHTML = '';
 
         for (const playerName of favoritos) {
             const avatarUrl = `https://gartic.com.br/avatar.php?nick=${playerName.toLowerCase()}`;
@@ -474,40 +475,52 @@
 
             await Promise.race([Promise.all(fetchPromises), new Promise(resolve => setTimeout(resolve, 15000))]);
 
-            const existingItem = document.querySelector(`.favorite-item[data-player-name="${playerName}"]`);
-
-            if (existingItem) {
-                const nameSpan = existingItem.querySelector('.player-name');
-                const roomSpan = existingItem.querySelector('.player-room');
-                const statusIcon = existingItem.querySelector('.online-icon, .offline-icon');
-
-                nameSpan.textContent = playerName;
-                roomSpan.textContent = salaNome;
-                statusIcon.className = jogadorEncontrado ? 'fas fa-circle online-icon' : 'fas fa-circle offline-icon';
-            } else {
-                const favoriteItem = document.createElement('div');
-                favoriteItem.classList.add('favorite-item');
-                favoriteItem.dataset.playerName = playerName;
-                favoriteItem.innerHTML = `
-                    <img src="${avatarUrl}" alt="Avatar de ${playerName}">
-                    <span class="player-name">${playerName}</span>&nbsp;&nbsp;
-                    <span class="player-room">${salaNome}</span>
-                    <i class="fas fa-circle ${jogadorEncontrado ? 'online-icon' : 'offline-icon'} "></i>
-                    <i class="fas fa-sync-alt spinning-icon"></i>
-                `;
-                favoriteItem.addEventListener('click', () => {
-                    document.getElementById('playerName').value = playerName;
-                    history.pushState({}, '', `?user=${playerName}`);
-                    buscarJogador();
-                });
-                favoritesContainer.appendChild(favoriteItem);
-            }
+            const existingItem = document.createElement('div');
+            existingItem.classList.add('favorite-item');
+            existingItem.dataset.playerName = playerName;
+            existingItem.innerHTML = `
+                <img src="${avatarUrl}" alt="Avatar de ${playerName}">
+                <span class="player-name">${playerName}</span>&nbsp;&nbsp;
+                <span class="player-room">${salaNome}</span>
+                </span>
+                <i class="fas fa-circle ${jogadorEncontrado ? 'online-icon' : 'offline-icon'}"></i>
+                <i class="fas fa-redo-alt refresh-icon" onclick="refreshFavorite('${playerName}')"></i>
+                <i class="far fa-trash-alt delete-icon" onclick="deleteFavorite('${playerName}')"></i>
+            `;
+            existingItem.addEventListener('click', () => {
+                fetchPlayerData(playerName);
+            });
+            favoritesContainer.appendChild(existingItem);
         }
     }
 
-    function showFavorites() {
-        const favoritesContainer = document.getElementById('favorites');
-        favoritesContainer.style.display = 'block';
+    function deleteFavorite(playerName) {
+        favoritos = favoritos.filter(fav => fav !== playerName);
+        localStorage.setItem('favoritos', JSON.stringify(favoritos));
+        renderizarFavoritos();
+        showPopup(`${playerName} foi removido dos favoritos!`);
+    }
+
+    function refreshFavorite(playerName) {
+        const existingItem = document.querySelector(`.favorite-item[data-player-name="${playerName}"]`);
+        if (existingItem) {
+            const refreshIcon = existingItem.querySelector('.refresh-icon');
+            refreshIcon.classList.add('fa-spin');
+
+            fetch(`https://gartic.com.br/info_sala.php?x=&id_sala=${salaId}`)
+                .then(response => response.json())
+                .then(salaData => {
+                    const jogadores = salaData.jogadores.map(jogador => jogador.toLowerCase());
+                    const jogadorEncontrado = jogadores.includes(playerName.toLowerCase());
+                    const statusIcon = existingItem.querySelector('.online-icon, .offline-icon');
+                    statusIcon.className = jogadorEncontrado ? 'fas fa-circle online-icon' : 'fas fa-circle offline-icon';
+                    refreshIcon.classList.remove('fa-spin');
+                })
+                .catch(error => {
+                    console.error(`Erro ao atualizar favorito ${playerName}:`, error);
+                    refreshIcon.classList.remove('fa-spin');
+                });
+        }
     }
 
     function hideFavorites() {
@@ -515,53 +528,58 @@
         favoritesContainer.style.display = 'none';
     }
 
-    function handleKeyPress(event) {
-        if (event.key === 'Enter') {
-            buscarJogador();
-        }
-    }
-
-    function hideInputAndButton() {
+    function showInputAndButton() {
         const formGroup = document.getElementById('form-group');
-        const labelGroup = document.getElementById('label-group');
-        formGroup.style.display = 'none';
-        labelGroup.style.display = 'none';
+        formGroup.style.display = 'flex';
     }
 
     function voltarPaginaInicial() {
         clearInterval(intervalId);
         document.getElementById('playerName').value = '';
-        document.getElementById('result').style.display = 'none';
+
+        const resultDiv = document.getElementById('result');
+        if (resultDiv) {
+            resultDiv.style.display = 'none';
+        }
+
+        showInputAndButton();
+
         history.pushState({}, '', window.location.pathname);
-        renderizarFavoritos();
-        showFavorites();
-        intervalId = setInterval(renderizarFavoritos, 10000);
+
+        renderizarFavoritos()
+            .then(() => {
+                const favoritesContainer = document.getElementById('favorites');
+                if (favoritesContainer) {
+                    favoritesContainer.style.display = 'flex';
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao renderizar favoritos:', error);
+            });
+
+        intervalId = setInterval(() => {
+            renderizarFavoritos()
+                .then(() => {
+                    const favoritesContainer = document.getElementById('favorites');
+                    if (favoritesContainer) {
+                        favoritesContainer.style.display = 'flex';
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao renderizar favoritos:', error);
+                });
+        }, 10000);
     }
 
-    window.onload = () => {
+    window.onload = function () {
         const params = new URLSearchParams(window.location.search);
-        const playerName = params.get('user') || params.get('login');
-
-        if (playerName) {
-            document.getElementById('playerName').value = playerName;
+        const user = params.get('user');
+        if (user) {
+            document.getElementById('playerName').value = user;
             buscarJogador();
-
-            if (params.has('login')) {
-                hideInputAndButton();
-            }
-
-            hideFavorites();
-        } else {
-            renderizarFavoritos();
-            showFavorites();
-            intervalId = setInterval(renderizarFavoritos, 10000);
         }
 
-        
-        const pageTitleElement = document.querySelector('.page-title');
-        if (pageTitleElement) {
-            pageTitleElement.addEventListener('click', voltarPaginaInicial);
-        }
+        renderizarFavoritos();
     };
 </script>
 <div id="popup" class="popup"></div>

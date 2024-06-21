@@ -283,6 +283,7 @@
     let currentAbortController = null;
     let intervalId = null;
     let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
+    let cache = {};
 
     async function fetchPlayerData(playerName) {
         const lowerCasePlayerName = playerName.toLowerCase();
@@ -300,53 +301,59 @@
         loadingDiv.style.display = 'flex';
 
         try {
-            const salasResponse = await fetch('https://raw.githubusercontent.com/kelbovine/articosibu/main/salas.json', { signal });
-            const salas = await salasResponse.json();
+            // Verificar se os dados do jogador já estão em cache
+            if (cache[lowerCasePlayerName]) {
+                const cachedData = cache[lowerCasePlayerName];
+                renderPlayerData(cachedData);
+            } else {
+                const salasResponse = await fetch('https://raw.githubusercontent.com/kelbovine/articosibu/main/salas.json', { signal });
+                const salas = await salasResponse.json();
 
-            let jogadorEncontrado = false;
-            let salaId = '';
-            let salaNome = 'Offline';
+                let jogadorEncontrado = false;
+                let salaId = '';
+                let salaNome = 'Offline';
 
-            const fetchPromises = Object.entries(salas).map(([id, nome]) =>
-                fetch(`https://gartic.com.br/info_sala.php?x=&id_sala=${id}`, { signal })
-                    .then(salaResponse => salaResponse.json())
-                    .then(salaData => {
-                        const jogadores = salaData.jogadores.map(jogador => jogador.toLowerCase());
-                        if (jogadores.includes(lowerCasePlayerName)) {
-                            jogadorEncontrado = true;
-                            salaId = id;
-                            salaNome = nome;
-                        }
-                    })
-                    .catch(error => console.error(`Erro ao buscar a sala ${id}:`, error))
-            );
+                const fetchPromises = Object.entries(salas).map(([id, nome]) =>
+                    fetch(`https://gartic.com.br/info_sala.php?x=&id_sala=${id}`, { signal })
+                        .then(salaResponse => salaResponse.json())
+                        .then(salaData => {
+                            const jogadores = salaData.jogadores.map(jogador => jogador.toLowerCase());
+                            if (jogadores.includes(lowerCasePlayerName)) {
+                                jogadorEncontrado = true;
+                                salaId = id;
+                                salaNome = nome;
+                            }
+                        })
+                        .catch(error => console.error(`Erro ao buscar a sala ${id}:`, error))
+                );
 
-            // Wait for all fetch promises to complete or 15 seconds timeout
-            await Promise.race([Promise.all(fetchPromises), new Promise(resolve => setTimeout(resolve, 15000))]);
+                // Aguardar que todas as promessas de busca sejam concluídas ou tempo limite de 15 segundos
+                await Promise.race([Promise.all(fetchPromises), new Promise(resolve => setTimeout(resolve, 15000))]);
 
-            const profileResponse = await fetch(`https://gartic.pics/r/profile?&login=${lowerCasePlayerName}`, { signal });
-            const profileData = await profileResponse.json();
-            const avatarUrl = `https://gartic.com.br/avatar.php?nick=${lowerCasePlayerName}`;
-            const pontos = profileData.pontos ?? 0;
-            const vitorias = profileData.vitorias ?? 0;
-            const frase = profileData.frase ?? '';
+                const profileResponse = await fetch(`https://gartic.pics/r/profile?&login=${lowerCasePlayerName}`, { signal });
+                const profileData = await profileResponse.json();
+                const avatarUrl = `https://gartic.com.br/avatar.php?nick=${lowerCasePlayerName}`;
+                const pontos = profileData.pontos ?? 0;
+                const vitorias = profileData.vitorias ?? 0;
+                const frase = profileData.frase ?? '';
 
-            const media = calcularMedia(pontos, vitorias);
+                const media = calcularMedia(pontos, vitorias);
 
-            resultDiv.innerHTML = `
-                <div class="profile-info">
-                    <h2>Perfil de ${playerName}</h2>
-                    <img src="${avatarUrl}" alt="Avatar de ${playerName}" class="avatar">
-                    <div class="bio-balloon">
-                        <div class="balloon">${frase}</div>
-                    </div>
-                    <i class="far fa-star favorite-icon" onclick="toggleFavorite('${playerName}')"></i>
-                    ${pontos > 0 && vitorias > 0 ? `<p><strong>Média:</strong> ${media}</p>` : ''}
-                    <p><strong>Pontos:</strong> ${pontos}</p>
-                    <p><strong>Vitórias:</strong> ${vitorias}</p>
-                    <p><strong>Jogando:</strong> ${jogadorEncontrado ? `<a href="https://gartic.com.br/0${salaId}" target="_blank">${salaNome}</a>` : 'Offline'}</p>
-                </div>
-            `;
+                // Armazenar dados no cache
+                cache[lowerCasePlayerName] = {
+                    playerName,
+                    avatarUrl,
+                    pontos,
+                    vitorias,
+                    frase,
+                    jogadorEncontrado,
+                    salaId,
+                    salaNome,
+                    media
+                };
+
+                renderPlayerData(cache[lowerCasePlayerName]);
+            }
 
             resultDiv.style.display = 'block';
             hideFavorites();
@@ -361,6 +368,26 @@
             loadingDiv.style.display = 'none';
             currentAbortController = null;
         }
+    }
+
+    function renderPlayerData(playerData) {
+        const { playerName, avatarUrl, pontos, vitorias, frase, jogadorEncontrado, salaId, salaNome, media } = playerData;
+
+        const resultDiv = document.getElementById('result');
+        resultDiv.innerHTML = `
+            <div class="profile-info">
+                <h2>Perfil de ${playerName}</h2>
+                <img src="${avatarUrl}" alt="Avatar de ${playerName}" class="avatar">
+                <div class="bio-balloon">
+                    <div class="balloon">${frase}</div>
+                </div>
+                <i class="far fa-star favorite-icon" onclick="toggleFavorite('${playerName}')"></i>
+                ${pontos > 0 && vitorias > 0 ? `<p><strong>Média:</strong> ${media}</p>` : ''}
+                <p><strong>Pontos:</strong> ${pontos}</p>
+                <p><strong>Vitórias:</strong> ${vitorias}</p>
+                <p><strong>Jogando:</strong> ${jogadorEncontrado ? `<a href="https://gartic.com.br/0${salaId}" target="_blank">${salaNome}</a>` : 'Offline'}</p>
+            </div>
+        `;
     }
 
     function calcularMedia(pontos, vitorias) {
@@ -454,7 +481,8 @@
         favoritesContainer.innerHTML = '';
 
         for (const playerName of favoritos) {
-            const avatarUrl = `https://gartic.com.br/avatar.php?nick=${playerName.toLowerCase()}`;
+            const lowerCasePlayerName = playerName.toLowerCase();
+            const avatarUrl = `https://gartic.com.br/avatar.php?nick=${lowerCasePlayerName}`;
             const salasResponse = await fetch('https://raw.githubusercontent.com/kelbovine/articosibu/main/salas.json');
             const salas = await salasResponse.json();
             let jogadorEncontrado = false;
@@ -464,7 +492,7 @@
                     .then(salaResponse => salaResponse.json())
                     .then(salaData => {
                         const jogadores = salaData.jogadores.map(jogador => jogador.toLowerCase());
-                        if (jogadores.includes(playerName.toLowerCase())) {
+                        if (jogadores.includes(lowerCasePlayerName)) {
                             jogadorEncontrado = true;
                         }
                     })
@@ -478,61 +506,50 @@
             favoriteItem.innerHTML = `
                 <img src="${avatarUrl}" alt="Avatar de ${playerName}">
                 <div>${playerName}</div>
-                <i class="fas fa-circle-notch fa-spin"></i>
-                <i class="fas fa-circle ${jogadorEncontrado ? 'online-icon' : 'offline-icon'}"></i>
+                <div>${jogadorEncontrado ? '<i class="fas fa-circle online"></i>' : '<i class="far fa-circle offline"></i>'}</div>
             `;
-            favoriteItem.addEventListener('click', () => {
-                document.getElementById('playerName').value = playerName;
-                history.pushState({}, '', `?user=${playerName}`);
-                buscarJogador();
-            });
             favoritesContainer.appendChild(favoriteItem);
         }
     }
 
     function hideFavorites() {
         const favoritesContainer = document.getElementById('favorites');
-        favoritesContainer.style.display = 'none';
-    }
-
-    function handleKeyPress(event) {
-        if (event.key === 'Enter') {
-            buscarJogador();
-        }
-    }
-
-    function hideInputAndButton() {
-        const formGroup = document.getElementById('form-group');
-        formGroup.style.display = 'none';
-    }
-
-    function voltarPaginaInicial() {
-        const resultDiv = document.getElementById('result');
-        const playerName = document.getElementById('playerName').value.trim();
-
-        hideFavorites();
-        resultDiv.innerHTML = '';
-        history.pushState({}, '', '/');
-        clearInterval(intervalId);
-        fetchPlayerData(playerName);
+        favoritesContainer.style.display = favoritos.length > 0 ? 'block' : 'none';
     }
 
     window.onload = () => {
         const urlParams = new URLSearchParams(window.location.search);
         const user = urlParams.get('user');
+        const login = urlParams.get('login');
 
         if (user) {
             document.getElementById('playerName').value = user;
             buscarJogador();
         }
 
-        const login = urlParams.get('login');
         if (login) {
             document.getElementById('home-icon').style.display = 'inline-block';
         }
 
         renderizarFavoritos();
         intervalId = setInterval(renderizarFavoritos, 10000);
+    };
+
+    window.onpopstate = () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const user = urlParams.get('user');
+        const login = urlParams.get('login');
+
+        if (user) {
+            document.getElementById('playerName').value = user;
+            buscarJogador();
+        }
+
+        if (login) {
+            document.getElementById('home-icon').style.display = 'inline-block';
+        }
+
+        renderizarFavoritos();
     };
 </script>
 </body>

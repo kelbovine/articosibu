@@ -289,7 +289,7 @@
         const resultDiv = document.getElementById('result');
         const errorDiv = document.getElementById('error');
         const loadingDiv = document.getElementById('loading');
-        
+
         if (currentAbortController) {
             currentAbortController.abort();
         }
@@ -321,19 +321,17 @@
                     .catch(error => console.error(`Erro ao buscar a sala ${id}:`, error))
             );
 
+            
             await Promise.race([Promise.all(fetchPromises), new Promise(resolve => setTimeout(resolve, 15000))]);
 
             const profileResponse = await fetch(`https://gartic.pics/r/profile?&login=${lowerCasePlayerName}`, { signal });
             const profileData = await profileResponse.json();
             const avatarUrl = `https://gartic.com.br/avatar.php?nick=${lowerCasePlayerName}`;
-            const pontos = profileData.pontos || 0;
-            const vitorias = profileData.vitorias || 0;
-            const frase = profileData.frase || '';
+            const pontos = profileData.pontos ?? 0;
+            const vitorias = profileData.vitorias ?? 0;
+            const frase = profileData.frase ?? '';
 
-            let media = '';
-            if (pontos > 0 && vitorias > 0) {
-                media = `<p><strong>Média:</strong> ${calcularMedia(pontos, vitorias)}</p>`;
-            }
+            const media = calcularMedia(pontos, vitorias);
 
             resultDiv.innerHTML = `
                 <div class="profile-info">
@@ -343,11 +341,10 @@
                         <div class="balloon">${frase}</div>
                     </div>
                     <i class="far fa-star favorite-icon" onclick="toggleFavorite('${playerName}')"></i>
+                    ${pontos > 0 && vitorias > 0 ? `<p><strong>Média:</strong> ${media}</p>` : ''}
                     <p><strong>Pontos:</strong> ${pontos}</p>
                     <p><strong>Vitórias:</strong> ${vitorias}</p>
-                    ${media}
                     <p><strong>Jogando:</strong> ${jogadorEncontrado ? `<a href="https://gartic.com.br/0${salaId}" target="_blank">${salaNome}</a>` : 'Offline'}</p>
-                    <i class="fas fa-home home-icon" onclick="voltarPaginaInicial()"></i>
                 </div>
             `;
 
@@ -367,8 +364,12 @@
     }
 
     function calcularMedia(pontos, vitorias) {
-        const media = pontos / vitorias;
-        return media.toFixed(media < 10 ? 2 : 1); 
+        if (pontos > 0 && vitorias > 0) {
+            const media = pontos / vitorias;
+            return media.toFixed(media < 10 ? 2 : 1);
+        } else {
+            return 'N/A';
+        }
     }
 
     function startAutoRefresh(playerName) {
@@ -378,7 +379,7 @@
 
         intervalId = setInterval(() => {
             fetchPlayerData(playerName);
-        }, 10000); 
+        }, 10000);
     }
 
     async function buscarJogador() {
@@ -405,7 +406,7 @@
         popup.style.display = 'block';
         setTimeout(() => {
             popup.style.display = 'none';
-        }, 3000); 
+        }, 3000);
     }
 
     function updateFavoriteIcon(playerName) {
@@ -457,7 +458,6 @@
             const salasResponse = await fetch('https://raw.githubusercontent.com/kelbovine/articosibu/main/salas.json');
             const salas = await salasResponse.json();
             let jogadorEncontrado = false;
-            let salaNome = 'Offline';
 
             const fetchPromises = Object.entries(salas).map(([id, nome]) =>
                 fetch(`https://gartic.com.br/info_sala.php?x=&id_sala=${id}`)
@@ -466,7 +466,6 @@
                         const jogadores = salaData.jogadores.map(jogador => jogador.toLowerCase());
                         if (jogadores.includes(playerName.toLowerCase())) {
                             jogadorEncontrado = true;
-                            salaNome = nome;
                         }
                     })
                     .catch(error => console.error(`Erro ao buscar a sala ${id}:`, error))
@@ -478,10 +477,9 @@
             favoriteItem.classList.add('favorite-item');
             favoriteItem.innerHTML = `
                 <img src="${avatarUrl}" alt="Avatar de ${playerName}">
-                <span class="player-name">${playerName}</span>&nbsp;&nbsp;
-                <span class="player-room">${salaNome}</span>
+                <div>${playerName}</div>
+                <i class="fas fa-circle-notch fa-spin"></i>
                 <i class="fas fa-circle ${jogadorEncontrado ? 'online-icon' : 'offline-icon'}"></i>
-                <i class="fas fa-sync-alt spinning-icon"></i>
             `;
             favoriteItem.addEventListener('click', () => {
                 document.getElementById('playerName').value = playerName;
@@ -505,17 +503,14 @@
 
     function hideInputAndButton() {
         const formGroup = document.getElementById('form-group');
-        const labelGroup = document.getElementById('label-group');
         formGroup.style.display = 'none';
-        labelGroup.style.display = 'none';
     }
 
     function voltarPaginaInicial() {
-        clearInterval(intervalId);
-        const params = new URLSearchParams(window.location.search);
-        const playerName = params.get('user') || params.get('login');
-        document.getElementById('playerName').value = '';
-        document.getElementById('result').style.display = 'none';
+        const resultDiv = document.getElementById('result');
+        const playerName = document.getElementById('playerName').value.trim();
+
+        resultDiv.style.display = 'none';
         history.pushState({}, '', window.location.pathname);
         if (!playerName) {
             renderizarFavoritos();
@@ -534,8 +529,6 @@
             if (params.has('login')) {
                 hideInputAndButton();
             }
-
-            hideFavorites();
         } else {
             renderizarFavoritos();
             intervalId = setInterval(renderizarFavoritos, 10000);

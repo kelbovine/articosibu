@@ -321,7 +321,7 @@
                     .catch(error => console.error(`Erro ao buscar a sala ${id}:`, error))
             );
 
-            
+            // Wait for all fetch promises to complete or 15 seconds timeout
             await Promise.race([Promise.all(fetchPromises), new Promise(resolve => setTimeout(resolve, 15000))]);
 
             const profileResponse = await fetch(`https://gartic.pics/r/profile?&login=${lowerCasePlayerName}`, { signal });
@@ -510,29 +510,29 @@
         const resultDiv = document.getElementById('result');
         const playerName = document.getElementById('playerName').value.trim();
 
-        resultDiv.style.display = 'none';
-        history.pushState({}, '', window.location.pathname);
-        if (!playerName) {
-            renderizarFavoritos();
-            intervalId = setInterval(renderizarFavoritos, 10000);
-        }
+        hideFavorites();
+        resultDiv.innerHTML = '';
+        history.pushState({}, '', '/');
+        clearInterval(intervalId);
+        fetchPlayerData(playerName);
     }
 
     window.onload = () => {
-        const params = new URLSearchParams(window.location.search);
-        const playerName = params.get('user') || params.get('login');
+        const urlParams = new URLSearchParams(window.location.search);
+        const user = urlParams.get('user');
 
-        if (playerName) {
-            document.getElementById('playerName').value = playerName;
+        if (user) {
+            document.getElementById('playerName').value = user;
             buscarJogador();
-
-            if (params.has('login')) {
-                hideInputAndButton();
-            }
-        } else {
-            renderizarFavoritos();
-            intervalId = setInterval(renderizarFavoritos, 10000);
         }
+
+        const login = urlParams.get('login');
+        if (login) {
+            document.getElementById('home-icon').style.display = 'inline-block';
+        }
+
+        renderizarFavoritos();
+        intervalId = setInterval(renderizarFavoritos, 10000);
     };
 </script>
 </body>

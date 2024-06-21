@@ -423,7 +423,17 @@
         await fetchPlayerData(playerName);
         startAutoRefresh(playerName);
 
-        history.pushState({}, '', `?user=${playerName}`);
+        const urlParams = new URLSearchParams(window.location.search);
+        const user = urlParams.get('user');
+        const login = urlParams.get('login');
+
+        if (user) {
+            history.pushState({}, '', `?user=${playerName}`);
+            document.getElementById('home-icon').style.display = 'inline-block';
+        } else if (login) {
+            history.pushState({}, '', `?login=${playerName}`);
+            document.getElementById('home-icon').style.display = 'inline-block';
+        }
     }
 
     function showPopup(message) {
@@ -508,6 +518,7 @@
                     <p><strong>${playerName}</strong></p>
                     <div>${jogadorEncontrado ? '<i class="fas fa-circle online"></i>' : '<i class="far fa-circle offline"></i>'}</div>
                     <div>${jogadorEncontrado ? `<a href="https://gartic.com.br/0${salaId}" target="_blank">${salaNome}</a>` : 'Offline'}</div>
+                    <i class="fas fa-sync-alt refresh-icon"></i>
                 </div>
             `;
             favoritesContainer.appendChild(favoriteItem);

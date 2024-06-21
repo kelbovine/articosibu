@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Buscador de Jogador Gartic 2.0</title>
+    <title>Buscador Gartic 2.1</title>
     <style>
         @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css');
         body {
@@ -210,7 +210,7 @@
     color: white;
 }
 
-/* Estilos para o popup */
+        
 .popup {
     position: fixed;
     bottom: 20px;
@@ -259,7 +259,7 @@
     <div class="container" id="container">
         <h1>
             <a href="/" style="text-decoration: none; color: #7b1fa2;">
-                Buscador de Jogador Gartic
+                Buscador Gartic by Kel
             </a>
         </h1>
         <div class="form-group" id="form-group">
@@ -450,7 +450,7 @@
 
     async function renderizarFavoritos() {
         const favoritesContainer = document.getElementById('favorites');
-        favoritesContainer.innerHTML = ''; // Limpa a lista de favoritos
+        favoritesContainer.innerHTML = ''; 
 
         for (const playerName of favoritos) {
             const avatarUrl = `https://gartic.com.br/avatar.php?nick=${playerName.toLowerCase()}`;
@@ -564,6 +564,10 @@
         }
     };
 </script>
-<div id="popup" style="display:none; position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: 10px; border-radius: 5px;"></div>
+</script>
+<div id="popup" class="popup"></div>
+<div class="credits">
+        Criado para jogadores mobile, desenvolvido por Kel
+    </div>
 </body>
 </html>
